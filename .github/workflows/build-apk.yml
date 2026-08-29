@@ -30,29 +30,27 @@ jobs:
           mkdir -p app/src/main/res/xml
           mkdir -p gradle/wrapper
 
-          cat << 'EOF' > settings.gradle.kts
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
+          cat << 'EOF' > settings.gradle
           rootProject.name = "ArrowBotMobile"
-          include(":app")
+          include ':app'
           EOF
 
-          cat << 'EOF' > build.gradle.kts
-          plugins {
-              id("com.android.application") version "8.2.2" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.2'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           EOF
 
@@ -62,46 +60,40 @@ jobs:
           android.nonTransitiveRClass=true
           EOF
 
-          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
-          distributionBase=GRADLE_USER_HOME
-          distributionPath=wrapper/dists
-          distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
-          zipStoreBase=GRADLE_USER_HOME
-          zipStorePath=wrapper/dists
-          EOF
+          cat << 'EOF' > app/build.gradle
+          apply plugin: 'com.android.application'
+          apply plugin: 'kotlin-android'
 
-          cat << 'EOF' > app/build.gradle.kts
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
-          }
           android {
-              namespace = "com.arrowbot.mobile"
-              compileSdk = 34
+              namespace 'com.arrowbot.mobile'
+              compileSdkVersion 34
+
               defaultConfig {
-                  applicationId = "com.arrowbot.mobile"
-                  minSdk = 26
-                  targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0.0"
+                  applicationId "com.arrowbot.mobile"
+                  minSdkVersion 26
+                  targetSdkVersion 34
+                  versionCode 1
+                  versionName "1.0.0"
               }
+
               buildTypes {
                   release {
-                      isMinifyEnabled = false
+                      minifyEnabled false
                   }
               }
               compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
               }
               kotlinOptions {
-                  jvmTarget = "17"
+                  jvmTarget = '17'
               }
           }
+
           dependencies {
-              implementation("androidx.core:core-ktx:1.12.0")
-              implementation("androidx.appcompat:appcompat:1.6.1")
-              implementation("com.google.android.material:material:1.11.0")
+              implementation 'androidx.core:core-ktx:1.12.0'
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
           }
           EOF
 
@@ -266,11 +258,11 @@ jobs:
           }
           EOF
 
-      - name: Build Debug APK
+      - name: Baixar Gradle e Compilar APK
         run: |
-          gradle wrapper
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          wget -q https://services.gradle.org/distributions/gradle-8.4-bin.zip
+          unzip -q gradle-8.4-bin.zip
+          ./gradle-8.4/bin/gradle assembleDebug --no-daemon --stacktrace
 
       - name: Salvar APK para Baixar no Celular
         uses: actions/upload-artifact@v4
