@@ -154,7 +154,7 @@ jobs:
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
               <string name="app_name">ArrowBot Mobile</string>
-              <string name="accessibility_service_description">AutomaÃ§Ã£o nativa de toques e resoluÃ§Ã£o para o jogo Arrow Maze.</string>
+              <string name="accessibility_service_description">Automação nativa de toques e resolução para o jogo Arrow Maze.</string>
           </resources>
           EOF
 
@@ -179,7 +179,7 @@ jobs:
                   android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
                   android:layout_marginTop="12dp"
-                  android:text="Configure as permissÃµes para ativar a janela flutuante"
+                  android:text="Configure as permissões para ativar a janela flutuante"
                   android:textAlignment="center"
                   android:textSize="14sp"
                   android:textColor="#94a3b8" />
@@ -241,7 +241,7 @@ jobs:
                           val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
                           startActivity(intent)
                       } else {
-                          Toast.makeText(this, "Janela Flutuante jÃ¡ permitida!", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this, "Janela Flutuante já permitida!", Toast.LENGTH_SHORT).show()
                       }
                   }
 
@@ -249,7 +249,7 @@ jobs:
                       if (!ArrowAccessibilityService.isServiceRunning()) {
                           startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                       } else {
-                          Toast.makeText(this, "Acessibilidade jÃ¡ estÃ¡ ativa!", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this, "Acessibilidade já está ativa!", Toast.LENGTH_SHORT).show()
                       }
                   }
 
@@ -362,7 +362,7 @@ jobs:
 
               private fun createFloatingWidget() {
                   val button = Button(this).apply {
-                      text = "â–¶ START BOT"
+                      text = "▶ START BOT"
                       setBackgroundColor(0xFF0284c7.toInt())
                       setTextColor(0xFFFFFFFF.toInt())
                       textSize = 12f
@@ -390,12 +390,12 @@ jobs:
                   button.setOnClickListener {
                       if (!isRunning) {
                           isRunning = true
-                          button.text = "â¹ STOP BOT"
+                          button.text = "⏹ STOP BOT"
                           button.setBackgroundColor(0xFFdc2626.toInt())
                           startBotLoop()
                       } else {
                           isRunning = false
-                          button.text = "â–¶ START BOT"
+                          button.text = "▶ START BOT"
                           button.setBackgroundColor(0xFF0284c7.toInt())
                           Toast.makeText(this, "Bot pausado", Toast.LENGTH_SHORT).show()
                       }
@@ -453,4 +453,41 @@ jobs:
                           val startX = screenWidth * 0.2f
                           val endX = screenWidth * 0.8f
                           val startY = screenHeight * 0.3f
-                      
+                          val endY {
+                          screenHeight * 0.7f
+
+                          val col = step % cols
+                          val row = (step / cols) % rows
+                          val x = startX + (col * (endX - startX) / (cols - 1))
+                          val y = startY + (row * (endY - startY) / (rows - 1))
+
+                          ArrowAccessibilityService.performTap(x, y)
+                          step = (step + 1) % (cols * rows)
+                      }
+                  }
+              }
+
+              override fun onDestroy() {
+                  super.onDestroy()
+                  isRunning = false
+                  serviceScope.cancel()
+                  floatingView?.let { windowManager?.removeView(it) }
+              }
+          }
+          EOF
+
+      - name: Baixar Gradle e Compilar APK
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          ./gradle-8.2/bin/gradle assembleDebug --no-daemon --stacktrace
+          mkdir -p output_apk
+          find . -name "*.apk" -exec cp {} output_apk/ArrowBot.apk \;
+          ls -lh output_apk/
+
+      - name: Salvar APK para Download no Celular
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArrowBot-APK
+          path: output_apk/ArrowBot.apk
