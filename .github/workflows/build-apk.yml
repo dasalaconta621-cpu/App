@@ -10,19 +10,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Setup Java JDK
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Gerar App Completo com Floating Overlay e Captura
+      - name: Criar Projeto Android Nativo
         run: |
           mkdir -p app/src/main/java/com/arrowbot/mobile/service
           mkdir -p app/src/main/res/layout
@@ -30,27 +27,29 @@ jobs:
           mkdir -p app/src/main/res/xml
           mkdir -p gradle/wrapper
 
-          cat << 'EOF' > settings.gradle
-          rootProject.name = "ArrowBotMobile"
-          include ':app'
-          EOF
-
-          cat << 'EOF' > build.gradle
-          buildscript {
+          cat << 'EOF' > settings.gradle.kts
+          pluginManagement {
               repositories {
                   google()
                   mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.2.2'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
+                  gradlePluginPortal()
               }
           }
-          allprojects {
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
               repositories {
                   google()
                   mavenCentral()
               }
+          }
+          rootProject.name = "ArrowBotMobile"
+          include(":app")
+          EOF
+
+          cat << 'EOF' > build.gradle.kts
+          plugins {
+              id("com.android.application") version "8.1.4" apply false
+              id("org.jetbrains.kotlin.android") version "1.9.20" apply false
           }
           EOF
 
@@ -60,41 +59,47 @@ jobs:
           android.nonTransitiveRClass=true
           EOF
 
-          cat << 'EOF' > app/build.gradle
-          apply plugin: 'com.android.application'
-          apply plugin: 'kotlin-android'
+          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
 
+          cat << 'EOF' > app/build.gradle.kts
+          plugins {
+              id("com.android.application")
+              id("org.jetbrains.kotlin.android")
+          }
           android {
-              namespace 'com.arrowbot.mobile'
-              compileSdkVersion 34
-
+              namespace = "com.arrowbot.mobile"
+              compileSdk = 34
               defaultConfig {
-                  applicationId "com.arrowbot.mobile"
-                  minSdkVersion 26
-                  targetSdkVersion 34
-                  versionCode 2
-                  versionName "1.1.0"
+                  applicationId = "com.arrowbot.mobile"
+                  minSdk = 26
+                  targetSdk = 34
+                  versionCode = 2
+                  versionName = "1.1.0"
               }
-
               buildTypes {
                   release {
-                      minifyEnabled false
+                      isMinifyEnabled = false
                   }
               }
               compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
               }
               kotlinOptions {
-                  jvmTarget = '17'
+                  jvmTarget = "17"
               }
           }
-
           dependencies {
-              implementation 'androidx.core:core-ktx:1.12.0'
-              implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'com.google.android.material:material:1.11.0'
-              implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+              implementation("androidx.core:core-ktx:1.12.0")
+              implementation("androidx.appcompat:appcompat:1.6.1")
+              implementation("com.google.android.material:material:1.11.0")
+              implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
           }
           EOF
 
@@ -354,7 +359,6 @@ jobs:
           import android.os.Build
           import android.os.IBinder
           import android.view.Gravity
-          import android.view.LayoutInflater
           import android.view.MotionEvent
           import android.view.View
           import android.view.WindowManager
@@ -417,7 +421,6 @@ jobs:
                       }
                   }
 
-                  // Permitir arrastar o botão flutuante na tela
                   button.setOnTouchListener(object : View.OnTouchListener {
                       private var initialX = 0
                       private var initialY = 0
@@ -442,14 +445,4 @@ jobs:
                                       windowManager?.updateViewLayout(button, params)
                                       return true
                                   }
-                              }
-                          }
-                          return false
-                      }
-                  })
-
-                  floatingView = button
-                  windowManager?.addView(button, params)
-              }
-
-              private fun startBotLoop() 
+        
