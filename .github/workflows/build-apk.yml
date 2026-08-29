@@ -13,13 +13,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Java JDK
+      - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Criar Projeto Android Nativo
+      - name: Gerar Projeto Android Completo
         run: |
           mkdir -p app/src/main/java/com/arrowbot/mobile/service
           mkdir -p app/src/main/res/layout
@@ -79,8 +79,8 @@ jobs:
                   applicationId = "com.arrowbot.mobile"
                   minSdk = 26
                   targetSdk = 34
-                  versionCode = 2
-                  versionName = "1.1.0"
+                  versionCode = 1
+                  versionName = "1.0.0"
               }
               buildTypes {
                   release {
@@ -107,7 +107,6 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
               <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
               <application
                   android:allowBackup="true"
@@ -155,7 +154,7 @@ jobs:
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
               <string name="app_name">ArrowBot Mobile</string>
-              <string name="accessibility_service_description">Automação nativa de toques e resolução para o jogo Arrow Maze.</string>
+              <string name="accessibility_service_description">AutomaÃ§Ã£o nativa de toques e resoluÃ§Ã£o para o jogo Arrow Maze.</string>
           </resources>
           EOF
 
@@ -180,7 +179,7 @@ jobs:
                   android:layout_width="wrap_content"
                   android:layout_height="wrap_content"
                   android:layout_marginTop="12dp"
-                  android:text="Configure as permissões para ativar a janela flutuante"
+                  android:text="Configure as permissÃµes para ativar a janela flutuante"
                   android:textAlignment="center"
                   android:textSize="14sp"
                   android:textColor="#94a3b8" />
@@ -215,9 +214,7 @@ jobs:
           cat << 'EOF' > app/src/main/java/com/arrowbot/mobile/MainActivity.kt
           package com.arrowbot.mobile
 
-          import android.content.Context
           import android.content.Intent
-          import android.media.projection.MediaProjectionManager
           import android.net.Uri
           import android.os.Build
           import android.os.Bundle
@@ -230,8 +227,6 @@ jobs:
           import com.arrowbot.mobile.service.ArrowFloatingService
 
           class MainActivity : AppCompatActivity() {
-              private val REQUEST_MEDIA_PROJECTION = 1001
-
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
                   setContentView(R.layout.activity_main)
@@ -246,7 +241,7 @@ jobs:
                           val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
                           startActivity(intent)
                       } else {
-                          Toast.makeText(this, "Janela Flutuante já permitida!", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this, "Janela Flutuante jÃ¡ permitida!", Toast.LENGTH_SHORT).show()
                       }
                   }
 
@@ -254,7 +249,7 @@ jobs:
                       if (!ArrowAccessibilityService.isServiceRunning()) {
                           startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                       } else {
-                          Toast.makeText(this, "Acessibilidade já está ativa!", Toast.LENGTH_SHORT).show()
+                          Toast.makeText(this, "Acessibilidade jÃ¡ estÃ¡ ativa!", Toast.LENGTH_SHORT).show()
                       }
                   }
 
@@ -268,25 +263,10 @@ jobs:
                           return@setOnClickListener
                       }
 
-                      val mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                      startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION)
-                  }
-              }
-
-              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-                  super.onActivityResult(requestCode, resultCode, data)
-                  if (requestCode == REQUEST_MEDIA_PROJECTION) {
-                      if (resultCode == RESULT_OK && data != null) {
-                          val serviceIntent = Intent(this, ArrowFloatingService::class.java).apply {
-                              putExtra("RESULT_CODE", resultCode)
-                              putExtra("DATA", data)
-                          }
-                          startService(serviceIntent)
-                          Toast.makeText(this, "Bot Flutuante Iniciado! Abra o jogo.", Toast.LENGTH_LONG).show()
-                          finish()
-                      } else {
-                          Toast.makeText(this, "Permissão de captura necessária para o bot enxergar o jogo.", Toast.LENGTH_SHORT).show()
-                      }
+                      val serviceIntent = Intent(this, ArrowFloatingService::class.java)
+                      startService(serviceIntent)
+                      Toast.makeText(this, "Bot Flutuante Ativo! Abra o jogo.", Toast.LENGTH_LONG).show()
+                      finish()
                   }
               }
           }
@@ -382,7 +362,7 @@ jobs:
 
               private fun createFloatingWidget() {
                   val button = Button(this).apply {
-                      text = "▶ START BOT"
+                      text = "â–¶ START BOT"
                       setBackgroundColor(0xFF0284c7.toInt())
                       setTextColor(0xFFFFFFFF.toInt())
                       textSize = 12f
@@ -410,12 +390,12 @@ jobs:
                   button.setOnClickListener {
                       if (!isRunning) {
                           isRunning = true
-                          button.text = "⏹ STOP BOT"
+                          button.text = "â¹ STOP BOT"
                           button.setBackgroundColor(0xFFdc2626.toInt())
                           startBotLoop()
                       } else {
                           isRunning = false
-                          button.text = "▶ START BOT"
+                          button.text = "â–¶ START BOT"
                           button.setBackgroundColor(0xFF0284c7.toInt())
                           Toast.makeText(this, "Bot pausado", Toast.LENGTH_SHORT).show()
                       }
@@ -445,4 +425,32 @@ jobs:
                                       windowManager?.updateViewLayout(button, params)
                                       return true
                                   }
-        
+                              }
+                          }
+                          return false
+                      }
+                  })
+
+                  floatingView = button
+                  windowManager?.addView(button, params)
+              }
+
+              private fun startBotLoop() {
+                  serviceScope.launch {
+                      Toast.makeText(this@ArrowFloatingService, "ArrowBot Iniciado! Tocando nas setas...", Toast.LENGTH_SHORT).show()
+                      val displayMetrics = resources.displayMetrics
+                      val screenWidth = displayMetrics.widthPixels.toFloat()
+                      val screenHeight = displayMetrics.heightPixels.toFloat()
+
+                      var step = 0
+                      while (isRunning) {
+                          delay(350)
+                          if (!isRunning) break
+
+                          // Varredura de toques em grade no centro do jogo
+                          val cols = 4
+                          val rows = 4
+                          val startX = screenWidth * 0.2f
+                          val endX = screenWidth * 0.8f
+                          val startY = screenHeight * 0.3f
+                      
