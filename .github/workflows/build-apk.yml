@@ -22,7 +22,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Gerar App Completo com Floating Overlay e Captura
+      - name: Gerar Estrutura de Arquivos e Código Fonte
         run: |
           mkdir -p app/src/main/java/com/arrowbot/mobile/service
           mkdir -p app/src/main/res/layout
@@ -58,6 +58,14 @@ jobs:
           org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
           android.useAndroidX=true
           android.nonTransitiveRClass=true
+          EOF
+
+          cat << 'EOF' > gradle/wrapper/gradle-wrapper.properties
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.2-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
           EOF
 
           cat << 'EOF' > app/build.gradle
@@ -104,11 +112,14 @@ jobs:
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
               <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
               <application
                   android:allowBackup="true"
                   android:icon="@android:drawable/sym_def_app_icon"
                   android:label="ArrowBot Mobile"
                   android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
@@ -117,9 +128,12 @@ jobs:
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
                   </activity>
+
                   <service
                       android:name=".service.ArrowFloatingService"
+                      android:foregroundServiceType="mediaProjection"
                       android:exported="false" />
+
                   <service
                       android:name=".service.ArrowAccessibilityService"
                       android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
@@ -221,6 +235,7 @@ jobs:
           import android.widget.TextView
           import android.widget.Toast
           import androidx.appcompat.app.AppCompatActivity
+          import androidx.core.content.ContextCompat
           import com.arrowbot.mobile.service.ArrowAccessibilityService
           import com.arrowbot.mobile.service.ArrowFloatingService
 
@@ -234,7 +249,6 @@ jobs:
                   val btnOverlay = findViewById<Button>(R.id.btnOverlay)
                   val btnAccessibility = findViewById<Button>(R.id.btnAccessibility)
                   val btnStart = findViewById<Button>(R.id.btnStartBot)
-                  val tvStatus = findViewById<TextView>(R.id.tvStatus)
 
                   btnOverlay.setOnClickListener {
                       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
@@ -276,7 +290,7 @@ jobs:
                               putExtra("RESULT_CODE", resultCode)
                               putExtra("DATA", data)
                           }
-                          startService(serviceIntent)
+                          ContextCompat.startForegroundService(this, serviceIntent)
                           Toast.makeText(this, "Bot Flutuante Iniciado! Abra o jogo.", Toast.LENGTH_LONG).show()
                           finish()
                       } else {
@@ -347,6 +361,9 @@ jobs:
           cat << 'EOF' > app/src/main/java/com/arrowbot/mobile/service/ArrowFloatingService.kt
           package com.arrowbot.mobile.service
 
+          import android.app.Notification
+          import android.app.NotificationChannel
+          import android.app.NotificationManager
           import android.app.Service
           import android.content.Context
           import android.content.Intent
@@ -354,12 +371,12 @@ jobs:
           import android.os.Build
           import android.os.IBinder
           import android.view.Gravity
-          import android.view.LayoutInflater
           import android.view.MotionEvent
           import android.view.View
           import android.view.WindowManager
           import android.widget.Button
           import android.widget.Toast
+          import androidx.core.app.NotificationCompat
           import kotlinx.coroutines.*
 
           class ArrowFloatingService : Service() {
@@ -372,8 +389,30 @@ jobs:
 
               override fun onCreate() {
                   super.onCreate()
+                  startForegroundServiceNotification()
                   windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
                   createFloatingWidget()
+              }
+
+              private fun startForegroundServiceNotification() {
+                  val channelId = "arrow_bot_service"
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                      val channel = NotificationChannel(
+                          channelId,
+                          "ArrowBot Service Channel",
+                          NotificationManager.IMPORTANCE_LOW
+                      )
+                      val manager = getSystemService(NotificationManager::class.java)
+                      manager?.createNotificationChannel(channel)
+                  }
+
+                  val notification: Notification = NotificationCompat.Builder(this, channelId)
+                      .setContentTitle("ArrowBot Rodando")
+                      .setContentText("Serviço em segundo plano ativo.")
+                      .setSmallIcon(android.R.drawable.sym_def_app_icon)
+                      .build()
+
+                  startForeground(1, notification)
               }
 
               private fun createFloatingWidget() {
@@ -417,7 +456,6 @@ jobs:
                       }
                   }
 
-                  // Permitir arrastar o botão flutuante na tela
                   button.setOnTouchListener(object : View.OnTouchListener {
                       private var initialX = 0
                       private var initialY = 0
@@ -452,8 +490,8 @@ jobs:
                   windowManager?.addView(button, params)
               }
 
-              private fun startBotLoop()
-              serviceScope.launch {
+              private fun startBotLoop() {
+                  serviceScope.launch {
                       Toast.makeText(this@ArrowFloatingService, "ArrowBot Iniciado! Tocando nas setas...", Toast.LENGTH_SHORT).show()
                       val displayMetrics = resources.displayMetrics
                       val screenWidth = displayMetrics.widthPixels.toFloat()
@@ -464,7 +502,6 @@ jobs:
                           delay(350)
                           if (!isRunning) break
 
-                          // Varredura de toques em grade no centro do jogo
                           val cols = 4
                           val rows = 4
                           val startX = screenWidth * 0.2f
@@ -492,12 +529,13 @@ jobs:
           }
           EOF
 
-      - name: Baixar Gradle e Compilar APK
+      - name: Compilar APK com Gradle Wrapper
         run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
-          export ANDROID_HOME=$ANDROID_SDK_ROOT
-          ./gradle-8.2/bin/gradle assembleDebug --no-daemon --stacktrace
+          ./gradle-8.2/bin/gradle wrapper
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
           mkdir -p output_apk
           find . -name "*.apk" -exec cp {} output_apk/ArrowBot.apk \;
           ls -lh output_apk/
